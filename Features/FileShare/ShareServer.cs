@@ -41,6 +41,8 @@ internal sealed class ShareServer : IDisposable
         var app = builder.Build();
         app.MapMethods("/", ["GET", "HEAD"], HandleRequestAsync);
         app.MapMethods("/{**relativePath}", ["GET", "HEAD"], HandleRequestAsync);
+        app.MapMethods("/_kutu/logo.png", ["GET", "HEAD"], context => SendBrandAssetAsync(context, "Kutu.Brand.LogoPng", "image/png"));
+        app.MapMethods("/favicon.ico", ["GET", "HEAD"], context => SendBrandAssetAsync(context, "Kutu.Brand.Favicon", "image/x-icon"));
         app.MapMethods("/_kutu/preview", ["GET", "HEAD"], HandlePreviewAsync);
         app.MapPost("/_kutu/upload", HandleUploadAsync);
         try
@@ -203,6 +205,17 @@ internal sealed class ShareServer : IDisposable
         catch (UnauthorizedAccessException) { context.Response.StatusCode = StatusCodes.Status403Forbidden; }
         catch (IOException) { context.Response.StatusCode = StatusCodes.Status500InternalServerError; }
         catch (ArgumentException) { context.Response.StatusCode = StatusCodes.Status400BadRequest; }
+    }
+
+    private static async Task SendBrandAssetAsync(HttpContext context, string resourceName, string contentType)
+    {
+        await using var stream = typeof(ShareServer).Assembly.GetManifestResourceStream(resourceName)
+            ?? throw new InvalidOperationException($"Missing embedded resource: {resourceName}");
+        context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+        context.Response.ContentType = contentType;
+        context.Response.ContentLength = stream.Length;
+        if (!HttpMethods.IsHead(context.Request.Method))
+            await stream.CopyToAsync(context.Response.Body, context.RequestAborted);
     }
 
     private static async Task ErrorAsync(HttpContext context, int status, string message)

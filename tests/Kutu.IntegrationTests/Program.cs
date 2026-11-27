@@ -35,6 +35,15 @@ try
         "目录列表、HTML 转义和仓库元数据隐藏");
     Check(root.Contains("<summary>上传文件</summary>") && root.Contains("id=\"pick\"") && root.Contains("或拖放到这里"),
         "收起的网页上传入口");
+    Check(root.Contains("href=\"/favicon.ico\"") && root.Contains("class=\"brandLogo\" src=\"/_kutu/logo.png\""),
+        "浏览器标签和页面标题引用 Kutu Logo");
+    var favicon = await client.GetAsync("/favicon.ico");
+    var pageLogo = await client.GetAsync("/_kutu/logo.png");
+    Check(favicon.StatusCode == HttpStatusCode.OK && favicon.Content.Headers.ContentType?.MediaType == "image/x-icon" &&
+          pageLogo.StatusCode == HttpStatusCode.OK && pageLogo.Content.Headers.ContentType?.MediaType == "image/png" &&
+          (await favicon.Content.ReadAsByteArrayAsync()).Length > 0 &&
+          (await pageLogo.Content.ReadAsByteArrayAsync()).Length > 0,
+        "Logo 和 favicon 可由浏览器读取");
     Check(root.Contains("id=\"search\"") && root.Contains("id=\"kind\"") &&
           root.Contains("id=\"timeFilter\"") && root.Contains("id=\"dateRange\"") &&
           root.Contains("id=\"sort\""), "名称、类型、时间和排序控件");
@@ -52,7 +61,8 @@ try
         "默认按最近修改时间倒序");
     Check(root.Contains("id=\"pageSize\"") && root.Contains("id=\"prevPage\"") &&
           root.Contains("id=\"nextPage\"") && root.Contains("id=\"pageInfo\"") &&
-          root.Contains("value=\"50\" selected"), "分页和每页条数控件");
+          root.Contains("value=\"10\" selected") && root.Contains("value=\"today\" selected"),
+        "分页控件及首次打开的默认选项");
     var tokenMatch = Regex.Match(root, "const uploadToken=\"([0-9A-F]+)\";");
     Check(tokenMatch.Success, "网页上传令牌");
     var token = tokenMatch.Groups[1].Value;

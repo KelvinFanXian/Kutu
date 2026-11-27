@@ -46,11 +46,16 @@ const thumbnail = { ...control(), dataset: { preview: '/_kutu/preview?path=pictu
 const previewAction = { ...control(), closest: () => previewRow };
 previewRow.querySelector = selector => selector === 'time' ? previewRow.time
   : selector === '.thumbButton' ? thumbnail : { href: '/picture.png' };
+const stored = new Map();
+const localStorage = {
+  getItem: key => stored.get(key) ?? null,
+  setItem: (key, value) => stored.set(key, value)
+};
 const elements = {
   entries,
   search: control(),
   kind: control('all'),
-  timeFilter: control('all'),
+  timeFilter: control('today'),
   sort: control('recent'),
   dateRange: control(),
   dateFrom: control(),
@@ -58,7 +63,7 @@ const elements = {
   dateError: control(),
   resultCount: control(),
   empty: control(),
-  pageSize: control('50'),
+  pageSize: control('10'),
   prevPage: control(),
   nextPage: control(),
   pageInfo: control(),
@@ -82,20 +87,27 @@ const document = {
   createElement: () => control()
 };
 const source = fs.readFileSync(path.join(__dirname, '..', 'Features', 'FileShare', 'Web', 'directory.js'), 'utf8');
-vm.runInNewContext(source, { document, Intl, Date, Number, Set, URLSearchParams });
+vm.runInNewContext(source, { document, localStorage, Intl, Date, Number, Set, URLSearchParams });
 
-assert.equal(rows.filter(row => !row.hidden).length, 50);
-assert.equal(elements.pageInfo.textContent, '第 1 / 2 页');
+assert.equal(rows.filter(row => !row.hidden).length, 1);
+assert.equal(elements.timeFilter.value, 'today');
+assert.equal(elements.pageSize.value, '10');
+assert.equal(elements.pageInfo.textContent, '第 1 / 1 页');
+assert.equal(entries.children[0].dataset.kind, 'folder');
+
+elements.timeFilter.value = 'all';
+elements.timeFilter.events.change();
+assert.equal(rows.filter(row => !row.hidden).length, 10);
+assert.equal(elements.pageInfo.textContent, '第 1 / 7 页');
 assert.equal(elements.prevPage.disabled, true);
 assert.equal(elements.nextPage.disabled, false);
-assert.equal(entries.children[0].dataset.kind, 'folder');
 assert.equal(entries.children[1].dataset.name, '文件-01.txt');
 
 elements.nextPage.events.click();
-assert.equal(elements.pageInfo.textContent, '第 2 / 2 页');
-assert.equal(rows.filter(row => !row.hidden).length, 11);
+assert.equal(elements.pageInfo.textContent, '第 2 / 7 页');
+assert.equal(rows.filter(row => !row.hidden).length, 10);
 assert.equal(rows[1].hidden, true);
-assert.equal(rows[60].hidden, false);
+assert.equal(rows[11].hidden, false);
 
 elements.search.value = '文件-60';
 elements.search.events.input();
@@ -122,13 +134,46 @@ elements.dateTo.events.change();
 assert.equal(elements.dateError.hidden, false);
 
 elements.reset.events.click();
-assert.equal(elements.pageInfo.textContent, '第 1 / 2 页');
-assert.equal(rows.filter(row => !row.hidden).length, 50);
+assert.equal(elements.pageInfo.textContent, '第 1 / 7 页');
+assert.equal(rows.filter(row => !row.hidden).length, 10);
+assert.equal(elements.timeFilter.value, 'all');
+assert.equal(JSON.parse(stored.get('kutu.file-list.preferences.v1')).timeFilter, 'all');
 
 elements.pageSize.value = '25';
 elements.pageSize.events.change();
 assert.equal(elements.pageInfo.textContent, '第 1 / 3 页');
 assert.equal(rows.filter(row => !row.hidden).length, 25);
+
+elements.kind.value = 'image';
+elements.kind.events.change();
+elements.timeFilter.value = 'custom';
+elements.timeFilter.events.change();
+elements.dateFrom.value = '2026-11-20';
+elements.dateFrom.events.change();
+elements.dateTo.value = '2026-11-27';
+elements.dateTo.events.change();
+elements.sort.value = 'name';
+elements.sort.events.change();
+const saved = JSON.parse(stored.get('kutu.file-list.preferences.v1'));
+assert.equal(saved.kind, 'image');
+assert.equal(saved.timeFilter, 'custom');
+assert.equal(saved.pageSize, '25');
+assert.equal(saved.sort, 'name');
+assert.equal(saved.dateFrom, '2026-11-20');
+assert.equal(saved.dateTo, '2026-11-27');
+elements.kind.value = 'all';
+elements.timeFilter.value = 'today';
+elements.pageSize.value = '10';
+elements.sort.value = 'recent';
+elements.dateFrom.value = '';
+elements.dateTo.value = '';
+vm.runInNewContext(source, { document, localStorage, Intl, Date, Number, Set, URLSearchParams });
+assert.equal(elements.kind.value, 'image');
+assert.equal(elements.timeFilter.value, 'custom');
+assert.equal(elements.pageSize.value, '25');
+assert.equal(elements.sort.value, 'name');
+assert.equal(elements.dateFrom.value, '2026-11-20');
+assert.equal(elements.dateTo.value, '2026-11-27');
 
 previewAction.events.click();
 assert.equal(elements.previewDialog.open, true);

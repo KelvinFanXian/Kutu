@@ -15,8 +15,38 @@ const prevPage = document.getElementById('prevPage');
 const nextPage = document.getElementById('nextPage');
 const pageInfo = document.getElementById('pageInfo');
 const collator = new Intl.Collator('zh-CN', { numeric: true, sensitivity: 'base' });
+const preferencesKey = 'kutu.file-list.preferences.v1';
 let page = 1;
 let filteredRows = rows;
+
+function restorePreferences() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(preferencesKey));
+    if (!saved || typeof saved !== 'object') return;
+    const allowed = [
+      [kind, ['all', 'folder', 'image', 'document', 'video', 'audio', 'archive', 'other'], saved.kind],
+      [timeFilter, ['all', 'today', '7d', '30d', 'custom'], saved.timeFilter],
+      [sort, ['recent', 'name', 'oldest', 'largest', 'smallest'], saved.sort],
+      [pageSize, ['10', '25', '50', '100'], saved.pageSize]
+    ];
+    for (const [control, values, value] of allowed) {
+      if (values.includes(value)) control.value = value;
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(saved.dateFrom || '')) dateFrom.value = saved.dateFrom;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(saved.dateTo || '')) dateTo.value = saved.dateTo;
+  } catch { /* Storage may be unavailable; the page still works with defaults. */ }
+}
+
+function savePreferences() {
+  try {
+    localStorage.setItem(preferencesKey, JSON.stringify({
+      kind: kind.value, timeFilter: timeFilter.value, sort: sort.value,
+      pageSize: pageSize.value, dateFrom: dateFrom.value, dateTo: dateTo.value
+    }));
+  } catch { /* Browsing remains usable when storage is blocked. */ }
+}
+
+restorePreferences();
 
 for (const row of rows) {
   const time = row.querySelector('time');
@@ -95,7 +125,10 @@ function applyFilters() {
 }
 
 for (const control of [search, kind, timeFilter, sort, dateFrom, dateTo]) {
-  control.addEventListener(control === search ? 'input' : 'change', applyFilters);
+  control.addEventListener(control === search ? 'input' : 'change', () => {
+    applyFilters();
+    if (control !== search) savePreferences();
+  });
 }
 document.getElementById('reset').addEventListener('click', () => {
   search.value = '';
@@ -105,8 +138,9 @@ document.getElementById('reset').addEventListener('click', () => {
   dateFrom.value = '';
   dateTo.value = '';
   applyFilters();
+  savePreferences();
 });
-pageSize.addEventListener('change', () => { page = 1; renderPage(); });
+pageSize.addEventListener('change', () => { page = 1; renderPage(); savePreferences(); });
 prevPage.addEventListener('click', () => { if (page > 1) { page--; renderPage(); entries.scrollIntoView({ block: 'start' }); } });
 nextPage.addEventListener('click', () => {
   if (page * Number(pageSize.value) < filteredRows.length) {

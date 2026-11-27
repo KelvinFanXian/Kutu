@@ -17,17 +17,17 @@ internal static class DirectoryPageRenderer
         var html = new StringBuilder(4096 + paths.Length * 320);
         html.Append("<!doctype html><html lang=\"zh-CN\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>");
         html.Append(WebUtility.HtmlEncode(title));
-        html.Append(" · Kutu</title><style>").Append(Css).Append("</style></head><body><main>");
+        html.Append(" · Kutu</title><link rel=\"icon\" type=\"image/x-icon\" href=\"/favicon.ico\"><style>").Append(Css).Append("</style></head><body><main>");
 
-        html.Append("<div class=\"heading\"><h1>").Append(WebUtility.HtmlEncode(title));
-        html.Append("</h1><details class=\"upload\" id=\"uploadPanel\"><summary>上传文件</summary><div class=\"uploadContent\"><p>上传到当前文件夹。支持多个文件，同名不覆盖；单个文件最大 10 GB。</p><div class=\"drop\" id=\"drop\"><input id=\"pick\" type=\"file\" multiple hidden><button id=\"choose\" type=\"button\">选择文件</button><span>或拖放到这里</span></div><ul id=\"uploadStatus\" aria-live=\"polite\"></ul></div></details></div>");
+        html.Append("<div class=\"heading\"><div class=\"brand\"><img class=\"brandLogo\" src=\"/_kutu/logo.png\" alt=\"\"><h1>").Append(WebUtility.HtmlEncode(title));
+        html.Append("</h1></div><details class=\"upload\" id=\"uploadPanel\"><summary>上传文件</summary><div class=\"uploadContent\"><p>上传到当前文件夹。支持多个文件，同名不覆盖；单个文件最大 10 GB。</p><div class=\"drop\" id=\"drop\"><input id=\"pick\" type=\"file\" multiple hidden><button id=\"choose\" type=\"button\">选择文件</button><span>或拖放到这里</span></div><ul id=\"uploadStatus\" aria-live=\"polite\"></ul></div></details></div>");
         html.Append("<p class=\"intro\">在当前文件夹中查找、浏览和下载文件。</p>");
 
         html.Append("""
             <section class="filters" aria-label="文件筛选">
               <label class="searchField"><span>名称</span><input id="search" type="search" placeholder="搜索文件或文件夹" autocomplete="off"></label>
               <label><span>类型</span><select id="kind"><option value="all">全部类型</option><option value="folder">文件夹</option><option value="image">图片</option><option value="document">文档</option><option value="video">视频</option><option value="audio">音频</option><option value="archive">压缩包</option><option value="other">其他文件</option></select></label>
-              <label><span>修改时间</span><select id="timeFilter"><option value="all">全部时间</option><option value="today">今天</option><option value="7d">最近 7 天</option><option value="30d">最近 30 天</option><option value="custom">自定义范围</option></select></label>
+              <label><span>修改时间</span><select id="timeFilter"><option value="all">全部时间</option><option value="today" selected>今天</option><option value="7d">最近 7 天</option><option value="30d">最近 30 天</option><option value="custom">自定义范围</option></select></label>
               <label><span>排序</span><select id="sort"><option value="recent">最近修改</option><option value="name">名称</option><option value="oldest">最早修改</option><option value="largest">文件最大</option><option value="smallest">文件最小</option></select></label>
               <div class="dateRange" id="dateRange" hidden><label><span>开始日期</span><input id="dateFrom" type="date"></label><label><span>结束日期</span><input id="dateTo" type="date"></label></div>
               <button class="reset" id="reset" type="button">清除筛选</button>
@@ -90,7 +90,7 @@ internal static class DirectoryPageRenderer
             html.Append("</div>");
         }
         html.Append("</div><div class=\"empty\" id=\"empty\" hidden></div>");
-        html.Append("<nav class=\"pager\" aria-label=\"文件分页\"><label>每页 <select id=\"pageSize\"><option value=\"25\">25 项</option><option value=\"50\" selected>50 项</option><option value=\"100\">100 项</option></select></label><div><button id=\"prevPage\" type=\"button\">上一页</button><span id=\"pageInfo\">第 1 / 1 页</span><button id=\"nextPage\" type=\"button\">下一页</button></div></nav>");
+        html.Append("<nav class=\"pager\" aria-label=\"文件分页\"><label>每页 <select id=\"pageSize\"><option value=\"10\" selected>10 项</option><option value=\"25\">25 项</option><option value=\"50\">50 项</option><option value=\"100\">100 项</option></select></label><div><button id=\"prevPage\" type=\"button\">上一页</button><span id=\"pageInfo\">第 1 / 1 页</span><button id=\"nextPage\" type=\"button\">下一页</button></div></nav>");
         html.Append("<dialog class=\"previewDialog\" id=\"previewDialog\"><div class=\"previewHeader\"><strong id=\"previewTitle\"></strong><button id=\"closePreview\" type=\"button\">关闭</button></div><img id=\"previewImage\" alt=\"\"><a id=\"downloadPreview\">下载原文件</a></dialog>");
         html.Append("<p class=\"footer\">由 Kutu 在局域网内提供文件分享。</p><script nonce=\"");
         html.Append(nonce).Append("\">const uploadToken=");

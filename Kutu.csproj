@@ -13,6 +13,8 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <Compile Remove="tests\**\*.cs" />
     <Resource Include="Assets\Kutu-logo.png" />
+    <EmbeddedResource Include="Assets\Kutu-logo.png" LogicalName="Kutu.Brand.LogoPng" />
+    <EmbeddedResource Include="Assets\Kutu.ico" LogicalName="Kutu.Brand.Favicon" />
     <EmbeddedResource Include="Features\FileShare\Web\directory.css" LogicalName="Kutu.FileShare.DirectoryCss" />
     <EmbeddedResource Include="Features\FileShare\Web\directory.js" LogicalName="Kutu.FileShare.DirectoryJs" />
   </ItemGroup>
