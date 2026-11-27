@@ -6,17 +6,53 @@ Kutu（酷 tool）是面向 Windows 的原生桌面小工具。当前第一个�
 
 > 当前处于首版开发与验证阶段。尚未发布可供普通用户下载的安装包。
 
-## 一眼看懂
+## 使用场景
+
+### 用例一：分享文件并让朋友找到它
 
 ```mermaid
-flowchart LR
-    A["在 Windows 上选择文件夹"] --> B["开始分享"]
-    B --> C["获取并复制当前访问地址"]
-    C --> D["发给同一局域网的朋友"]
-    D --> E["朋友用浏览器查找文件"]
-    E --> F["预览或下载"]
-    E --> G["上传到当前文件夹"]
-    B --> H["停止分享或关闭 Kutu"]
+sequenceDiagram
+    actor Owner as 分享者
+    participant App as Kutu
+    participant Server as 分享服务
+    actor Friend as 朋友
+    participant Browser as 浏览器
+    Owner->>App: 选择文件夹，点击开始分享
+    App->>Server: 在 1234 端口启动分享
+    App-->>Owner: 显示正在分享
+    Owner->>App: 点击获取并复制访问地址
+    App-->>Owner: 复制当前 IP 的访问地址
+    Owner-->>Friend: 发送地址
+    Friend->>Browser: 打开地址
+    Browser->>Server: 请求目录
+    Server-->>Browser: 返回文件列表
+    Friend->>Browser: 搜索、筛选目标文件
+    Browser-->>Friend: 显示匹配结果
+    Friend->>Browser: 点击预览或下载
+    Browser->>Server: 请求目标文件
+    Server-->>Browser: 返回预览或原文件
+    Owner->>App: 分享结束，点击停止分享
+    App->>Server: 停止服务
+```
+
+### 用例二：朋友上传文件
+
+```mermaid
+sequenceDiagram
+    actor Friend as 局域网朋友
+    participant Browser as 分享网页
+    participant Server as Kutu 分享服务
+    participant Folder as 当前文件夹
+    Friend->>Browser: 选择或拖入文件
+    Browser->>Server: 上传到当前目录
+    Server->>Server: 检查文件名、目录和上传令牌
+    alt 没有同名文件
+        Server->>Folder: 写入临时文件，完成后改名
+        Server-->>Browser: 上传完成
+    else 已有同名文件
+        Server-->>Browser: 提示冲突，不覆盖原文件
+    end
+    Browser-->>Friend: 显示每个文件的结果
 ```
 
 ## 使用方法
