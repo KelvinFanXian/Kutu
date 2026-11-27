@@ -1,0 +1,11 @@
+bin/
+obj/
+.vs/
+publish/
+*.user
+*.suo
+TestResults/
+.dotnet/
+.dotnet-home/
+dotnet-sdk.zip
+scripts/dotnet-install.ps1
