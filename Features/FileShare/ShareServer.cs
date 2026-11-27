@@ -12,7 +12,7 @@ namespace Kutu.Features.FileShare;
 
 internal sealed class ShareServer : IDisposable
 {
-    public const int DefaultPort = 38765;
+    public const int DefaultPort = 1234;
     public const long MaxUploadBytes = 10L * 1024 * 1024 * 1024;
     private readonly string _root;
     private readonly string _uploadToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));

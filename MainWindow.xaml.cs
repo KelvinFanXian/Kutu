@@ -52,7 +52,7 @@ public partial class MainWindow : Window
             var socketError = ex.GetBaseException() as SocketException;
             StatusText.Text = socketError?.SocketErrorCode switch
             {
-                SocketError.AddressAlreadyInUse => "启动失败：端口 38765 已被其他程序使用。请先关闭占用该端口的程序。",
+                SocketError.AddressAlreadyInUse => "启动失败：端口 1234 已被其他程序使用。请先关闭占用该端口的程序。",
                 SocketError.AccessDenied => "启动失败：系统阻止了网络监听。请检查安全软件和网络权限。",
                 _ => $"启动失败：{ex.Message}"
             };

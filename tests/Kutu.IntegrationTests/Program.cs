@@ -21,6 +21,7 @@ var server = new ShareServer(shared, port, loopbackOnly: true);
 using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{port}/") };
 try
 {
+    Check(ShareServer.DefaultPort == 1234, "正式共享端口固定为 1234");
     await server.StartAsync();
 
     var root = await client.GetStringAsync("/");
