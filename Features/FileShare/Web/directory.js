@@ -117,6 +117,22 @@ nextPage.addEventListener('click', () => {
 });
 applyFilters();
 
+const previewDialog = document.getElementById('previewDialog');
+const previewImage = document.getElementById('previewImage');
+const previewTitle = document.getElementById('previewTitle');
+const downloadPreview = document.getElementById('downloadPreview');
+for (const button of document.querySelectorAll('.thumbButton, .previewAction')) {
+  button.addEventListener('click', () => {
+    const row = button.closest('.item');
+    previewTitle.textContent = row.dataset.name;
+    previewImage.src = row.querySelector('.thumbButton').dataset.preview;
+    downloadPreview.href = row.querySelector('.itemText').href;
+    previewDialog.showModal();
+  });
+}
+document.getElementById('closePreview').addEventListener('click', () => previewDialog.close());
+previewDialog.addEventListener('close', () => previewImage.removeAttribute('src'));
+
 const pick = document.getElementById('pick');
 const drop = document.getElementById('drop');
 const status = document.getElementById('uploadStatus');

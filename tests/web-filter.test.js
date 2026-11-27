@@ -41,6 +41,11 @@ const entries = {
   },
   scrollIntoView() {}
 };
+const previewRow = rows[60];
+const thumbnail = { ...control(), dataset: { preview: '/_kutu/preview?path=picture.png' }, closest: () => previewRow };
+const previewAction = { ...control(), closest: () => previewRow };
+previewRow.querySelector = selector => selector === 'time' ? previewRow.time
+  : selector === '.thumbButton' ? thumbnail : { href: '/picture.png' };
 const elements = {
   entries,
   search: control(),
@@ -57,6 +62,11 @@ const elements = {
   prevPage: control(),
   nextPage: control(),
   pageInfo: control(),
+  previewDialog: { ...control(), showModal() { this.open = true; }, close() { this.open = false; } },
+  previewImage: { ...control(), removeAttribute() {} },
+  previewTitle: control(),
+  downloadPreview: control(),
+  closePreview: control(),
   reset: control(),
   pick: control(),
   drop: { ...control(), classList: { add() {}, remove() {} } },
@@ -64,6 +74,7 @@ const elements = {
   choose: control()
 };
 const document = {
+  querySelectorAll: () => [thumbnail, previewAction],
   getElementById: id => {
     assert.ok(elements[id], `missing element ${id}`);
     return elements[id];
@@ -119,4 +130,12 @@ elements.pageSize.events.change();
 assert.equal(elements.pageInfo.textContent, '第 1 / 3 页');
 assert.equal(rows.filter(row => !row.hidden).length, 25);
 
-console.log('PASS: sort, search, type/date filters, reset and pagination');
+previewAction.events.click();
+assert.equal(elements.previewDialog.open, true);
+assert.equal(elements.previewTitle.textContent, previewRow.dataset.name);
+assert.equal(elements.previewImage.src, '/_kutu/preview?path=picture.png');
+assert.equal(elements.downloadPreview.href, '/picture.png');
+elements.closePreview.events.click();
+assert.equal(elements.previewDialog.open, false);
+
+console.log('PASS: sort, search, type/date filters, pagination and preview actions');

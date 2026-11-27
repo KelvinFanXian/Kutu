@@ -41,6 +41,7 @@ internal sealed class ShareServer : IDisposable
         var app = builder.Build();
         app.MapMethods("/", ["GET", "HEAD"], HandleRequestAsync);
         app.MapMethods("/{**relativePath}", ["GET", "HEAD"], HandleRequestAsync);
+        app.MapMethods("/_kutu/preview", ["GET", "HEAD"], HandlePreviewAsync);
         app.MapPost("/_kutu/upload", HandleUploadAsync);
         try
         {
@@ -179,6 +180,31 @@ internal sealed class ShareServer : IDisposable
         }
     }
 
+    private async Task HandlePreviewAsync(HttpContext context)
+    {
+        context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+        context.Response.Headers["Cache-Control"] = "no-store";
+        context.Response.Headers["Content-Security-Policy"] = "default-src 'none'";
+        try
+        {
+            var (fullPath, _, error) = ResolvePath(context.Request.Query["path"].ToString());
+            if (error != 0) { context.Response.StatusCode = error; return; }
+            if (!File.Exists(fullPath!)) { context.Response.StatusCode = StatusCodes.Status404NotFound; return; }
+            var contentType = PreviewImages.ContentType(fullPath!);
+            if (contentType is null || new FileInfo(fullPath!).Length > PreviewImages.MaxBytes)
+            {
+                context.Response.StatusCode = StatusCodes.Status415UnsupportedMediaType;
+                return;
+            }
+            await Results.File(fullPath!, contentType, enableRangeProcessing: true).ExecuteAsync(context);
+        }
+        catch (FileNotFoundException) { context.Response.StatusCode = StatusCodes.Status404NotFound; }
+        catch (DirectoryNotFoundException) { context.Response.StatusCode = StatusCodes.Status404NotFound; }
+        catch (UnauthorizedAccessException) { context.Response.StatusCode = StatusCodes.Status403Forbidden; }
+        catch (IOException) { context.Response.StatusCode = StatusCodes.Status500InternalServerError; }
+        catch (ArgumentException) { context.Response.StatusCode = StatusCodes.Status400BadRequest; }
+    }
+
     private static async Task ErrorAsync(HttpContext context, int status, string message)
     {
         context.Response.StatusCode = status;
@@ -237,7 +263,7 @@ internal sealed class ShareServer : IDisposable
             .ThenBy(path => Path.GetFileName(path), StringComparer.CurrentCultureIgnoreCase)
             .ToArray();
         var nonce = Convert.ToBase64String(RandomNumberGenerator.GetBytes(16));
-        context.Response.Headers["Content-Security-Policy"] = $"default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-{nonce}'; connect-src 'self'";
+        context.Response.Headers["Content-Security-Policy"] = $"default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-{nonce}'; connect-src 'self'; img-src 'self'";
         var html = DirectoryPageRenderer.Render(segments, items, _uploadToken, nonce);
         context.Response.ContentType = "text/html; charset=utf-8";
         if (!HttpMethods.IsHead(context.Request.Method))

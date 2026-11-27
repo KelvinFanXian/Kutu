@@ -54,22 +54,44 @@ internal static class DirectoryPageRenderer
             var modifiedUtc = File.GetLastWriteTimeUtc(path);
             var modified = new DateTimeOffset(modifiedUtc).ToUnixTimeMilliseconds();
             var size = folder ? 0 : new FileInfo(path).Length;
-            html.Append("<a class=\"item\" href=\"");
-            html.Append(WebUtility.HtmlEncode(Link(segments.Append(name))));
-            html.Append("\" data-name=\"").Append(WebUtility.HtmlEncode(name));
+            var fileUrl = Link(segments.Append(name));
+            var previewable = !folder && size <= PreviewImages.MaxBytes && PreviewImages.ContentType(name) is not null;
+            html.Append("<div class=\"item\" data-name=\"").Append(WebUtility.HtmlEncode(name));
             html.Append("\" data-kind=\"").Append(kind);
             html.Append("\" data-time=\"").Append(modified.ToString(CultureInfo.InvariantCulture));
             html.Append("\" data-size=\"").Append(size.ToString(CultureInfo.InvariantCulture));
-            html.Append("\"><span class=\"itemIcon\" aria-hidden=\"true\">").Append(Icon(kind));
-            html.Append("</span><span class=\"itemText\"><span class=\"itemName\">").Append(WebUtility.HtmlEncode(name));
+            html.Append("\">");
+            if (previewable)
+            {
+                var previewUrl = "/_kutu/preview?path=" + Uri.EscapeDataString(string.Join('/', segments.Append(name)));
+                html.Append("<button class=\"thumbButton\" type=\"button\" aria-label=\"预览 ")
+                    .Append(WebUtility.HtmlEncode(name)).Append("\" data-preview=\"")
+                    .Append(WebUtility.HtmlEncode(previewUrl)).Append("\"><img class=\"thumb\" src=\"")
+                    .Append(WebUtility.HtmlEncode(previewUrl)).Append("\" alt=\"\" loading=\"lazy\" decoding=\"async\"></button>");
+            }
+            else html.Append("<span class=\"itemIcon\" aria-hidden=\"true\">").Append(Icon(kind)).Append("</span>");
+            html.Append("<a class=\"itemText\" href=\"").Append(WebUtility.HtmlEncode(fileUrl));
+            html.Append("\"><span class=\"itemName\">").Append(WebUtility.HtmlEncode(name));
             html.Append("</span><span class=\"itemMeta\"><time datetime=\"");
             html.Append(modifiedUtc.ToString("O", CultureInfo.InvariantCulture));
             html.Append("\">").Append(modifiedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.CurrentCulture));
             html.Append("</time><span>").Append(folder ? "文件夹" : FormatSize(size));
-            html.Append("</span></span></span></a>");
+            html.Append("</span></span></a>");
+            if (!folder)
+            {
+                html.Append("<span class=\"itemActions\">");
+                if (previewable)
+                    html.Append("<button class=\"actionButton previewAction\" type=\"button\" aria-label=\"预览 ")
+                        .Append(WebUtility.HtmlEncode(name)).Append("\" title=\"预览\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12Z\"/><circle cx=\"12\" cy=\"12\" r=\"2.5\"/></svg></button>");
+                html.Append("<a class=\"actionButton\" href=\"").Append(WebUtility.HtmlEncode(fileUrl))
+                    .Append("\" aria-label=\"下载 ").Append(WebUtility.HtmlEncode(name))
+                    .Append("\" title=\"下载\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M12 3v12m-4-4 4 4 4-4M4 17v3h16v-3\"/></svg></a></span>");
+            }
+            html.Append("</div>");
         }
         html.Append("</div><div class=\"empty\" id=\"empty\" hidden></div>");
         html.Append("<nav class=\"pager\" aria-label=\"文件分页\"><label>每页 <select id=\"pageSize\"><option value=\"25\">25 项</option><option value=\"50\" selected>50 项</option><option value=\"100\">100 项</option></select></label><div><button id=\"prevPage\" type=\"button\">上一页</button><span id=\"pageInfo\">第 1 / 1 页</span><button id=\"nextPage\" type=\"button\">下一页</button></div></nav>");
+        html.Append("<dialog class=\"previewDialog\" id=\"previewDialog\"><div class=\"previewHeader\"><strong id=\"previewTitle\"></strong><button id=\"closePreview\" type=\"button\">关闭</button></div><img id=\"previewImage\" alt=\"\"><a id=\"downloadPreview\">下载原文件</a></dialog>");
         html.Append("<p class=\"footer\">由 Kutu 在局域网内提供文件分享。</p><script nonce=\"");
         html.Append(nonce).Append("\">const uploadToken=");
         html.Append(System.Text.Json.JsonSerializer.Serialize(uploadToken));

@@ -11,6 +11,9 @@ Directory.CreateDirectory(Path.Combine(shared, "子目录"));
 Directory.CreateDirectory(Path.Combine(shared, ".git"));
 File.WriteAllText(Path.Combine(shared, "a & b.txt"), "hello", Encoding.UTF8);
 File.WriteAllText(Path.Combine(shared, "old.jpg"), "image", Encoding.UTF8);
+var png = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9n0m0AAAAASUVORK5CYII=");
+File.WriteAllBytes(Path.Combine(shared, "preview.png"), png);
+File.WriteAllText(Path.Combine(shared, "unsafe.svg"), "<svg><script>alert(1)</script></svg>");
 File.SetLastWriteTimeUtc(Path.Combine(shared, "old.jpg"), new DateTime(2020, 1, 2, 3, 4, 0, DateTimeKind.Utc));
 File.WriteAllText(Path.Combine(shared, "recent-z.txt"), "new", Encoding.UTF8);
 File.WriteAllText(Path.Combine(shared, "子目录", "中文.txt"), "nested", Encoding.UTF8);
@@ -39,6 +42,11 @@ try
           root.Contains("2020-01-02") &&
           root.Contains($"data-size=\"{new FileInfo(Path.Combine(shared, "old.jpg")).Length}\""),
         "文件类型、修改时间和大小元数据");
+    Check(root.Contains("class=\"thumb\" src=\"/_kutu/preview?path=preview.png\"") &&
+          root.Contains("class=\"actionButton previewAction\"") &&
+          root.Contains("aria-label=\"下载 preview.png\"") &&
+          !root.Contains("/_kutu/preview?path=unsafe.svg"),
+        "图片缩略图、右侧操作与非安全格式回退");
     Check(root.IndexOf("data-name=\"recent-z.txt\"", StringComparison.Ordinal) <
           root.IndexOf("data-name=\"old.jpg\"", StringComparison.Ordinal),
         "默认按最近修改时间倒序");
@@ -53,6 +61,16 @@ try
     Check(file.StatusCode == HttpStatusCode.OK && await file.Content.ReadAsStringAsync() == "hello",
         "特殊文件名下载");
     Check(file.Content.Headers.ContentDisposition?.DispositionType == "attachment", "附件下载响应头");
+    var imagePreview = await client.GetAsync("/_kutu/preview?path=preview.png");
+    Check(imagePreview.StatusCode == HttpStatusCode.OK &&
+          imagePreview.Content.Headers.ContentType?.MediaType == "image/png" &&
+          imagePreview.Content.Headers.ContentDisposition is null &&
+          (await imagePreview.Content.ReadAsByteArrayAsync()).SequenceEqual(png),
+        "预览图片以内联图像返回");
+    var svgPreview = await client.GetAsync("/_kutu/preview?path=unsafe.svg");
+    Check(svgPreview.StatusCode == HttpStatusCode.UnsupportedMediaType, "SVG 不直接预览");
+    var outsidePreview = await client.GetAsync("/_kutu/preview?path=../secret.txt");
+    Check(outsidePreview.StatusCode != HttpStatusCode.OK, "预览路径不能越界");
 
     var nested = await client.GetAsync("/子目录/中文.txt");
     Check(nested.StatusCode == HttpStatusCode.OK && await nested.Content.ReadAsStringAsync() == "nested",
