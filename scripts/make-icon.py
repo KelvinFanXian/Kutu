@@ -1,15 +1,22 @@
-"""Package the supplied Kutu logo as a Windows multi-size icon."""
+"""Prepare the approved Kutu box mark for the app and Windows icon sizes."""
 
 from pathlib import Path
 from PIL import Image, ImageOps
 
 assets = Path(__file__).resolve().parent.parent / "Assets"
-source = Image.open(assets / "Kutu-logo.png").convert("RGBA")
-canvas = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
-fitted = ImageOps.contain(source, (248, 248), method=Image.Resampling.LANCZOS)
-canvas.alpha_composite(fitted, ((256 - fitted.width) // 2, (256 - fitted.height) // 2))
+source_path = assets / "Kutu-logo-source.png"
+output_path = assets / "Kutu-logo.png"
+source = Image.open(source_path).convert("RGBA")
+visible = source.getchannel("A").point(lambda alpha: 255 if alpha > 64 else 0)
+bounds = visible.getbbox()
+if bounds is None:
+    raise ValueError("Kutu logo is empty")
 
-canvas.save(
+fitted = ImageOps.contain(source.crop(bounds), (472, 472), Image.Resampling.LANCZOS)
+canvas = Image.new("RGBA", (512, 512), (0, 0, 0, 0))
+canvas.alpha_composite(fitted, ((512 - fitted.width) // 2, (512 - fitted.height) // 2))
+canvas.save(output_path, optimize=True)
+canvas.resize((256, 256), Image.Resampling.LANCZOS).save(
     assets / "Kutu.ico",
     sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)],
 )

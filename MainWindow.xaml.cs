@@ -1,9 +1,12 @@
 using System.IO;
+using System.Net.Http;
 using System.Net.Sockets;
 using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Win32;
 using Kutu.Features.FileShare;
+using Kutu.Features.Updates;
+using System.Diagnostics;
 
 namespace Kutu;
 
@@ -12,11 +15,18 @@ public partial class MainWindow : Window
     private ShareServer? _server;
     private string? _folder;
     private bool _busy;
+    private static readonly HttpClient UpdateClient = new() { Timeout = TimeSpan.FromSeconds(30) };
+    private readonly ReleaseUpdater _updater = new(UpdateClient);
+    private AvailableUpdate? _availableUpdate;
+    private bool _checkingUpdate;
+    private bool _installingUpdate;
 
     public MainWindow()
     {
         InitializeComponent();
         Closed += (_, _) => _server?.Dispose();
+        VersionText.Text = $"v{GetCurrentVersion().ToString(3)}";
+        Loaded += async (_, _) => await CheckForUpdateAsync(silent: true);
     }
 
     private void ChooseFolder_Click(object sender, RoutedEventArgs e)
@@ -124,5 +134,69 @@ public partial class MainWindow : Window
         StopButton.IsEnabled = !busy && _server is not null;
         CopyButton.IsEnabled = !busy && _server is not null;
         AddressPicker.IsEnabled = !busy && _server is not null;
+    }
+
+    private static Version GetCurrentVersion() => typeof(App).Assembly.GetName().Version ?? new Version(0, 0, 0);
+
+    private async void CheckUpdate_Click(object sender, RoutedEventArgs e) => await CheckForUpdateAsync(silent: false);
+
+    private async Task CheckForUpdateAsync(bool silent)
+    {
+        if (_checkingUpdate || _installingUpdate) return;
+        _checkingUpdate = true;
+        CheckUpdateButton.IsEnabled = false;
+        if (!silent) UpdateStatusText.Text = "正在检查…";
+        try
+        {
+            _availableUpdate = await _updater.CheckAsync(GetCurrentVersion());
+            InstallUpdateButton.Visibility = _availableUpdate is null ? Visibility.Collapsed : Visibility.Visible;
+            UpdateStatusText.Text = _availableUpdate is null
+                ? (silent ? "" : "当前已是最新版本，或尚未发布新版本。")
+                : $"发现新版本 v{_availableUpdate.Version.ToString(3)}";
+        }
+        catch (Exception ex)
+        {
+            if (!silent) UpdateStatusText.Text = $"检查失败：{ex.Message}";
+        }
+        finally
+        {
+            _checkingUpdate = false;
+            CheckUpdateButton.IsEnabled = true;
+        }
+    }
+
+    private async void InstallUpdate_Click(object sender, RoutedEventArgs e)
+    {
+        if (_installingUpdate || _availableUpdate is null) return;
+        var target = Environment.ProcessPath;
+        if (target is null || !Path.GetFileName(target).Equals("Kutu.exe", StringComparison.OrdinalIgnoreCase))
+        {
+            UpdateStatusText.Text = "请使用发布版 Kutu.exe 更新。";
+            return;
+        }
+        if (MessageBox.Show(this, "将下载新版本并重启 Kutu。重启时当前文件分享会停止，是否继续？",
+                "更新 Kutu", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+        _installingUpdate = true;
+        CheckUpdateButton.IsEnabled = false;
+        InstallUpdateButton.IsEnabled = false;
+        try
+        {
+            var progress = new Progress<int>(value => UpdateStatusText.Text = $"正在下载更新… {value}%");
+            var package = await _updater.DownloadAsync(_availableUpdate, progress);
+            UpdateStatusText.Text = "正在重启以完成更新…";
+            Process.Start(new ProcessStartInfo(package)
+            {
+                UseShellExecute = true,
+                ArgumentList = { "--kutu-apply-update", target, Environment.ProcessId.ToString() }
+            });
+            Application.Current.Shutdown();
+        }
+        catch (Exception ex)
+        {
+            UpdateStatusText.Text = $"更新失败：{ex.Message}";
+            _installingUpdate = false;
+            CheckUpdateButton.IsEnabled = true;
+            InstallUpdateButton.IsEnabled = true;
+        }
     }
 }

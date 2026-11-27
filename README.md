@@ -66,11 +66,36 @@ sequenceDiagram
 
 访问地址形如 `http://192.168.1.23:1234/`；IP 会变化，端口固定为 `1234`。
 
-网页会显示文件修改时间和大小，可按名称、类型、时间范围筛选，或按名称、时间和大小排序。首次打开默认显示今天修改的文件，每页 10 项，并按修改时间倒序排列。浏览器会在本地记住上次选择的类型、时间、排序、每页条数和自定义日期；同一访问地址下再次打开时沿用这些选项。点击“清除筛选”会显示全部时间并保存该选择。上传入口位于页面标题旁，点击后展开；点击面板外或按 Esc 可收起。
+网页会显示文件修改时间和大小，可按名称、类型、时间范围筛选，或按名称、时间和大小排序。首次打开默认显示今天修改的文件，每页 10 项，并按修改时间倒序排列。浏览器会在本地记住上次选择的类型、时间、排序、每页条数和自定义日期；同一访问地址下再次打开时沿用这些选项。点击“清除筛选”会显示全部时间并保存该选择。上传入口位于页面右上角，点击后展开；点击面板外或按 Esc 可收起。
 
 常见图片会在列表中显示缩略图。点击缩略图或右侧眼睛图标可放大预览；点击文件名或右侧下载图标可下载原文件。超过 20 MB 的图片和浏览器不支持直接预览的格式仍显示类型图标。
 
-网页标题和浏览器标签页显示 Kutu Logo，方便在多个标签页中找到分享页面。
+浏览器标签页使用 Kutu 图标。网页顶部保持简洁，让文件筛选和列表优先进入视线。
+
+## 更新 Kutu
+
+窗口底部会在启动时检查 [GitHub Releases](https://github.com/KelvinFanXian/Kutu/releases)；也可点击“检查更新”。有新版本时，点击“下载并更新”，Kutu 会校验下载文件，然后重启完成替换。更新重启期间，正在进行的文件分享会停止，需重新选择文件夹并启动。检查只在启动或点击按钮时发生，不会常驻后台轮询。
+
+```mermaid
+sequenceDiagram
+    actor Owner as 使用者
+    participant App as Kutu
+    participant GitHub as GitHub Release
+    participant Helper as 更新程序
+    Owner->>App: 打开 Kutu
+    App->>GitHub: 查询最新正式版本
+    GitHub-->>App: 版本与安装包 SHA-256
+    App-->>Owner: 有新版本时显示更新按钮
+    Owner->>App: 点击下载并更新
+    App->>GitHub: 流式下载更新包
+    App->>App: 校验大小和 SHA-256
+    App->>Helper: 启动校验过的新版程序
+    App->>App: 停止分享并退出
+    Helper->>Helper: 等待旧版退出，替换程序
+    Helper->>App: 启动新版 Kutu
+```
+
+目前尚未发布 GitHub Release，因此检查会提示没有新版本。发布流程见[发布说明](docs/RELEASING.md)。
 
 ## 工作方式
 
@@ -121,7 +146,8 @@ node .\tests\web-filter.test.js
 ```text
 App.xaml / MainWindow.xaml    Windows 原生桌面界面
 Features/FileShare/           第一个功能：局域网文件分享及网页资源
-Assets/                       用户提供的 Logo 与生成的 Windows 图标
+Assets/                       黑色盒子 Logo 源图、应用图片与 Windows 图标
+Features/Updates/             GitHub Release 检查、下载校验与更新替换
 scripts/publish.ps1           发布脚本
 docs/                         产品要求、架构和验证记录
 PLAN.md                       开发计划与进度

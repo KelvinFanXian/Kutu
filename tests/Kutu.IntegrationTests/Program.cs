@@ -3,6 +3,9 @@ using System.Net.Sockets;
 using System.Text;
 using System.Text.RegularExpressions;
 using Kutu.Features.FileShare;
+using Kutu.Features.Updates;
+using System.Text.Json;
+using System.Security.Cryptography;
 
 var scratch = Path.Combine(Path.GetTempPath(), "KutuTests-" + Guid.NewGuid().ToString("N"));
 var shared = Path.Combine(scratch, "shared");
@@ -35,15 +38,12 @@ try
         "目录列表、HTML 转义和仓库元数据隐藏");
     Check(root.Contains("<summary>上传文件</summary>") && root.Contains("id=\"pick\"") && root.Contains("或拖放到这里"),
         "收起的网页上传入口");
-    Check(root.Contains("href=\"/favicon.ico\"") && root.Contains("class=\"brandLogo\" src=\"/_kutu/logo.png\""),
-        "浏览器标签和页面标题引用 Kutu Logo");
+    Check(root.Contains("href=\"/favicon.ico\"") && !root.Contains("brandLogo") &&
+          root.Contains("class=\"srOnly\""), "页面保留标签图标并收起大标题");
     var favicon = await client.GetAsync("/favicon.ico");
-    var pageLogo = await client.GetAsync("/_kutu/logo.png");
     Check(favicon.StatusCode == HttpStatusCode.OK && favicon.Content.Headers.ContentType?.MediaType == "image/x-icon" &&
-          pageLogo.StatusCode == HttpStatusCode.OK && pageLogo.Content.Headers.ContentType?.MediaType == "image/png" &&
-          (await favicon.Content.ReadAsByteArrayAsync()).Length > 0 &&
-          (await pageLogo.Content.ReadAsByteArrayAsync()).Length > 0,
-        "Logo 和 favicon 可由浏览器读取");
+          (await favicon.Content.ReadAsByteArrayAsync()).Length > 0,
+        "favicon 可由浏览器读取");
     Check(root.Contains("id=\"search\"") && root.Contains("id=\"kind\"") &&
           root.Contains("id=\"timeFilter\"") && root.Contains("id=\"dateRange\"") &&
           root.Contains("id=\"sort\""), "名称、类型、时间和排序控件");
@@ -116,6 +116,42 @@ try
     Check(badPath.StatusCode == HttpStatusCode.BadRequest, "上传目录越界被拒绝");
     Check(!Directory.EnumerateFiles(shared, ".kutu-upload-*.tmp").Any(), "上传临时文件已清理");
 
+    using var release = JsonDocument.Parse("""
+      {"tag_name":"v0.2.0","assets":[{"name":"Kutu-win-x64.exe","size":4,
+      "digest":"sha256:88D4266FD4E6338D13B845FCF289579D209C897823B9217DA3E161936F031589",
+      "browser_download_url":"https://github.com/KelvinFanXian/Kutu/releases/download/v0.2.0/Kutu-win-x64.exe"}]}
+      """);
+    Check(ReleaseUpdater.ParseRelease(release.RootElement, new Version(0, 1, 0))?.Version == new Version(0, 2, 0),
+        "发现比当前版本新的 GitHub Release");
+    Check(ReleaseUpdater.ParseRelease(release.RootElement, new Version(0, 2, 0)) is null,
+        "相同版本不提示更新");
+    var payload = Encoding.UTF8.GetBytes("test");
+    using var updateClient = new HttpClient(new FixedResponseHandler(payload));
+    var updater = new ReleaseUpdater(updateClient);
+    var updateInfo = new AvailableUpdate(new Version(0, 2, 0),
+        new Uri("https://github.com/KelvinFanXian/Kutu/releases/download/v0.2.0/Kutu-win-x64.exe"),
+        payload.Length, Convert.ToHexString(SHA256.HashData(payload)));
+    var updateFolder = Path.Combine(scratch, "updates");
+    var updatePath = await updater.DownloadAsync(updateInfo, destinationDirectory: updateFolder);
+    Check(File.ReadAllBytes(updatePath).SequenceEqual(payload), "更新包流式下载并校验 SHA-256");
+    try
+    {
+        await updater.DownloadAsync(updateInfo with { Sha256 = new string('0', 64) }, destinationDirectory: updateFolder);
+        throw new Exception("FAIL: 损坏更新包未被拒绝");
+    }
+    catch (InvalidDataException)
+    {
+        Check(Directory.EnumerateFiles(updateFolder).Count() == 1, "损坏更新包被拒绝并清理临时文件");
+    }
+    var oldExe = Path.Combine(scratch, "Kutu.exe");
+    var newExe = Path.Combine(scratch, "new.exe");
+    File.WriteAllText(oldExe, "old");
+    File.WriteAllText(newExe, "new");
+    UpdateInstaller.ReplaceFile(newExe, oldExe);
+    Check(File.ReadAllText(oldExe) == "new" &&
+          File.ReadAllText(Path.Combine(scratch, "Kutu.previous.exe")) == "old",
+          "更新文件替换并保留旧版备份");
+
     await server.StopAsync();
     Console.WriteLine("PASS: all integration checks");
 }
@@ -140,4 +176,10 @@ static void Check(bool condition, string name)
 {
     if (!condition) throw new Exception($"FAIL: {name}");
     Console.WriteLine($"PASS: {name}");
+}
+
+sealed class FixedResponseHandler(byte[] bytes) : HttpMessageHandler
+{
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+        Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(bytes) });
 }

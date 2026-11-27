@@ -41,7 +41,6 @@ internal sealed class ShareServer : IDisposable
         var app = builder.Build();
         app.MapMethods("/", ["GET", "HEAD"], HandleRequestAsync);
         app.MapMethods("/{**relativePath}", ["GET", "HEAD"], HandleRequestAsync);
-        app.MapMethods("/_kutu/logo.png", ["GET", "HEAD"], context => SendBrandAssetAsync(context, "Kutu.Brand.LogoPng", "image/png"));
         app.MapMethods("/favicon.ico", ["GET", "HEAD"], context => SendBrandAssetAsync(context, "Kutu.Brand.Favicon", "image/x-icon"));
         app.MapMethods("/_kutu/preview", ["GET", "HEAD"], HandlePreviewAsync);
         app.MapPost("/_kutu/upload", HandleUploadAsync);

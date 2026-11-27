@@ -19,9 +19,10 @@ internal static class DirectoryPageRenderer
         html.Append(WebUtility.HtmlEncode(title));
         html.Append(" · Kutu</title><link rel=\"icon\" type=\"image/x-icon\" href=\"/favicon.ico\"><style>").Append(Css).Append("</style></head><body><main>");
 
-        html.Append("<div class=\"heading\"><div class=\"brand\"><img class=\"brandLogo\" src=\"/_kutu/logo.png\" alt=\"\"><h1>").Append(WebUtility.HtmlEncode(title));
-        html.Append("</h1></div><details class=\"upload\" id=\"uploadPanel\"><summary>上传文件</summary><div class=\"uploadContent\"><p>上传到当前文件夹。支持多个文件，同名不覆盖；单个文件最大 10 GB。</p><div class=\"drop\" id=\"drop\"><input id=\"pick\" type=\"file\" multiple hidden><button id=\"choose\" type=\"button\">选择文件</button><span>或拖放到这里</span></div><ul id=\"uploadStatus\" aria-live=\"polite\"></ul></div></details></div>");
-        html.Append("<p class=\"intro\">在当前文件夹中查找、浏览和下载文件。</p>");
+        html.Append("<h1 class=\"srOnly\">").Append(WebUtility.HtmlEncode(title));
+        html.Append("</h1><div class=\"heading\"><p class=\"intro\">");
+        if (segments.Length > 0) html.Append("当前：").Append(WebUtility.HtmlEncode(title)).Append(" · ");
+        html.Append("在当前文件夹中查找、浏览和下载文件。</p><details class=\"upload\" id=\"uploadPanel\"><summary>上传文件</summary><div class=\"uploadContent\"><p>上传到当前文件夹。支持多个文件，同名不覆盖；单个文件最大 10 GB。</p><div class=\"drop\" id=\"drop\"><input id=\"pick\" type=\"file\" multiple hidden><button id=\"choose\" type=\"button\">选择文件</button><span>或拖放到这里</span></div><ul id=\"uploadStatus\" aria-live=\"polite\"></ul></div></details></div>");
 
         html.Append("""
             <section class="filters" aria-label="文件筛选">
