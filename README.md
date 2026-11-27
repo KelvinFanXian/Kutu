@@ -1,3 +1,5 @@
+<p align="center"><img src="Assets/Kutu-logo.png" alt="Kutu Logo" width="240"></p>
+
 # Kutu
 
 Kutu（酷 tool）是面向 Windows 的原生桌面小工具。当前第一个功能是**局域网文件分享**：选择文件夹，点击开始，再把复制的访问地址发给朋友。朋友用浏览器即可浏览、下载和上传文件。后续功能会按实际需求逐步加入。
@@ -14,6 +16,8 @@ Kutu（酷 tool）是面向 Windows 的原生桌面小工具。当前第一个�
 电脑换了 Wi-Fi 或 IP 地址后，再点一次“获取并复制访问地址”。如果列表中出现多个网卡地址，可选当前使用的网卡，再复制。
 
 访问地址形如 `http://192.168.1.23:1234/`；IP 会变化，端口固定为 `1234`。
+
+网页会显示文件修改时间和大小，可按名称、类型、时间范围筛选，或按名称、时间和大小排序。默认最近修改的文件排在前面，列表每页 50 项，可调整每页条数。上传入口位于页面标题旁，点击后展开。
 
 ## 安全边界
 
@@ -32,6 +36,7 @@ Kutu（酷 tool）是面向 Windows 的原生桌面小工具。当前第一个�
 dotnet build .\Kutu.csproj
 dotnet run --project .\Kutu.csproj
 dotnet run --project .\tests\Kutu.IntegrationTests\Kutu.IntegrationTests.csproj
+node .\tests\web-filter.test.js
 ```
 
 生成给朋友使用的自包含单文件程序：
@@ -46,7 +51,7 @@ dotnet run --project .\tests\Kutu.IntegrationTests\Kutu.IntegrationTests.csproj
 
 ```text
 App.xaml / MainWindow.xaml    Windows 原生桌面界面
-Features/FileShare/           第一个功能：局域网文件分享
+Features/FileShare/           第一个功能：局域网文件分享及网页资源
 Assets/                       用户提供的 Logo 与生成的 Windows 图标
 scripts/publish.ps1           发布脚本
 docs/                         产品要求、架构和验证记录

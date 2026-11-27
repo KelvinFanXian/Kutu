@@ -10,6 +10,9 @@ Directory.CreateDirectory(shared);
 Directory.CreateDirectory(Path.Combine(shared, "子目录"));
 Directory.CreateDirectory(Path.Combine(shared, ".git"));
 File.WriteAllText(Path.Combine(shared, "a & b.txt"), "hello", Encoding.UTF8);
+File.WriteAllText(Path.Combine(shared, "old.jpg"), "image", Encoding.UTF8);
+File.SetLastWriteTimeUtc(Path.Combine(shared, "old.jpg"), new DateTime(2020, 1, 2, 3, 4, 0, DateTimeKind.Utc));
+File.WriteAllText(Path.Combine(shared, "recent-z.txt"), "new", Encoding.UTF8);
 File.WriteAllText(Path.Combine(shared, "子目录", "中文.txt"), "nested", Encoding.UTF8);
 File.WriteAllText(Path.Combine(scratch, "secret.txt"), "secret", Encoding.UTF8);
 
@@ -27,7 +30,21 @@ try
     var root = await client.GetStringAsync("/");
     Check(root.Contains("a &amp; b.txt") && root.Contains("子目录") && !root.Contains(".git"),
         "目录列表、HTML 转义和仓库元数据隐藏");
-    Check(root.Contains("选择文件上传") && root.Contains("拖到这里"), "网页上传入口");
+    Check(root.Contains("<summary>上传文件</summary>") && root.Contains("id=\"pick\"") && root.Contains("或拖放到这里"),
+        "收起的网页上传入口");
+    Check(root.Contains("id=\"search\"") && root.Contains("id=\"kind\"") &&
+          root.Contains("id=\"timeFilter\"") && root.Contains("id=\"dateRange\"") &&
+          root.Contains("id=\"sort\""), "名称、类型、时间和排序控件");
+    Check(root.Contains("data-name=\"old.jpg\" data-kind=\"image\"") &&
+          root.Contains("2020-01-02") &&
+          root.Contains($"data-size=\"{new FileInfo(Path.Combine(shared, "old.jpg")).Length}\""),
+        "文件类型、修改时间和大小元数据");
+    Check(root.IndexOf("data-name=\"recent-z.txt\"", StringComparison.Ordinal) <
+          root.IndexOf("data-name=\"old.jpg\"", StringComparison.Ordinal),
+        "默认按最近修改时间倒序");
+    Check(root.Contains("id=\"pageSize\"") && root.Contains("id=\"prevPage\"") &&
+          root.Contains("id=\"nextPage\"") && root.Contains("id=\"pageInfo\"") &&
+          root.Contains("value=\"50\" selected"), "分页和每页条数控件");
     var tokenMatch = Regex.Match(root, "const uploadToken=\"([0-9A-F]+)\";");
     Check(tokenMatch.Success, "网页上传令牌");
     var token = tokenMatch.Groups[1].Value;

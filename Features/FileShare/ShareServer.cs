@@ -1,8 +1,5 @@
 using System.IO;
-using System.Net;
 using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Hosting;
@@ -236,73 +233,14 @@ internal sealed class ShareServer : IDisposable
             .Where(path => !File.GetAttributes(path).HasFlag(FileAttributes.ReparsePoint) &&
                            !HiddenName(Path.GetFileName(path)))
             .OrderBy(path => !Directory.Exists(path))
+            .ThenByDescending(File.GetLastWriteTimeUtc)
             .ThenBy(path => Path.GetFileName(path), StringComparer.CurrentCultureIgnoreCase)
             .ToArray();
-
-        static string Link(IEnumerable<string> parts) => "/" + string.Join("/", parts.Select(Uri.EscapeDataString));
-        var title = segments.Length == 0 ? "共享文件夹" : segments[^1];
         var nonce = Convert.ToBase64String(RandomNumberGenerator.GetBytes(16));
         context.Response.Headers["Content-Security-Policy"] = $"default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-{nonce}'; connect-src 'self'";
-        var html = new StringBuilder("<!doctype html><html lang=\"zh-CN\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>");
-        html.Append(WebUtility.HtmlEncode(title));
-        html.Append(" · Kutu</title><style>body{font-family:system-ui,'Microsoft YaHei',sans-serif;background:#f5f7fb;color:#17294d;max-width:780px;margin:36px auto;padding:0 18px}h1{font-size:26px}h2{font-size:18px;margin:0 0 8px}p{color:#64748b}.card{background:white;border-radius:12px;padding:22px;margin:20px 0}.drop{border:2px dashed #b9c9e5;border-radius:10px;padding:24px;text-align:center;background:#f8fbff}.drop.over{border-color:#2463eb;background:#eff5ff}button{border:0;border-radius:8px;padding:11px 18px;background:#2463eb;color:white;font:inherit;cursor:pointer}.small{font-size:13px}.list{background:white;border-radius:12px;overflow:hidden}.item{display:block;padding:16px 20px;border-bottom:1px solid #edf1f7;color:#2357b8;text-decoration:none;overflow-wrap:anywhere}.item:hover{background:#eff5ff}.hint{font-size:13px;margin-top:22px}#uploadStatus{padding-left:20px;color:#475569}</style></head><body><h1>");
-        html.Append(WebUtility.HtmlEncode(title));
-        html.Append("</h1><p>可以上传到当前文件夹，也可以浏览和下载已有文件。</p><section class=\"card\"><h2>上传文件到这里</h2><p class=\"small\">支持一次选择多个文件；同名文件不会覆盖。单个文件最大 10 GB。</p><div class=\"drop\" id=\"drop\"><input id=\"pick\" type=\"file\" multiple hidden><button id=\"choose\" type=\"button\">选择文件上传</button><p class=\"small\">也可以把文件拖到这里</p></div><ul id=\"uploadStatus\" aria-live=\"polite\"></ul></section><div class=\"list\">");
-        if (segments.Length > 0)
-        {
-            html.Append("<a class=\"item\" href=\"");
-            html.Append(WebUtility.HtmlEncode(Link(segments.SkipLast(1))));
-            html.Append("\">↩ 返回上一级</a>");
-        }
-        foreach (var path in items)
-        {
-            var name = Path.GetFileName(path);
-            var isDirectory = Directory.Exists(path);
-            html.Append("<a class=\"item\" href=\"");
-            html.Append(WebUtility.HtmlEncode(Link(segments.Append(name))));
-            html.Append("\">");
-            html.Append(isDirectory ? "📁 " : "📄 ");
-            html.Append(WebUtility.HtmlEncode(name));
-            html.Append("</a>");
-        }
-        if (items.Length == 0) html.Append("<div class=\"item\" style=\"color:#64748b\">这个文件夹是空的</div>");
-        html.Append("</div><p class=\"hint\">由 Kutu 在局域网内提供文件分享。上传的文件会保存到当前文件夹。</p><script nonce=\"");
-        html.Append(nonce);
-        html.Append("\">const uploadToken=");
-        html.Append(JsonSerializer.Serialize(_uploadToken));
-        html.Append(";const uploadPath=");
-        html.Append(JsonSerializer.Serialize(string.Join('/', segments)));
-        html.Append(";");
-        html.Append("""
-            const pick=document.getElementById('pick'),drop=document.getElementById('drop'),status=document.getElementById('uploadStatus');
-            document.getElementById('choose').onclick=()=>pick.click();
-            pick.onchange=()=>uploadFiles(pick.files);
-            drop.ondragover=e=>{e.preventDefault();drop.classList.add('over')};
-            drop.ondragleave=()=>drop.classList.remove('over');
-            drop.ondrop=e=>{e.preventDefault();drop.classList.remove('over');uploadFiles(e.dataTransfer.files)};
-            async function uploadFiles(files){
-              if(!files||!files.length)return;
-              let completed=0;
-              for(const file of files){
-                const row=document.createElement('li');row.textContent=file.name+'：等待上传';status.append(row);
-                const ok=await new Promise(resolve=>{
-                  const xhr=new XMLHttpRequest();
-                  const query=new URLSearchParams({path:uploadPath,name:file.name});
-                  xhr.open('POST','/_kutu/upload?'+query);
-                  xhr.setRequestHeader('X-Kutu-Upload-Token',uploadToken);
-                  xhr.upload.onprogress=e=>{if(e.lengthComputable)row.textContent=file.name+'：'+Math.round(e.loaded/e.total*100)+'%'};
-                  xhr.onload=()=>{row.textContent=file.name+'：'+(xhr.status===201?'上传完成':xhr.responseText||'上传失败');resolve(xhr.status===201)};
-                  xhr.onerror=()=>{row.textContent=file.name+'：网络中断';resolve(false)};
-                  xhr.send(file);
-                });
-                if(ok)completed++;
-              }
-              if(completed===files.length)location.reload();
-            }
-            </script></body></html>
-            """);
+        var html = DirectoryPageRenderer.Render(segments, items, _uploadToken, nonce);
         context.Response.ContentType = "text/html; charset=utf-8";
         if (!HttpMethods.IsHead(context.Request.Method))
-            await context.Response.WriteAsync(html.ToString());
+            await context.Response.WriteAsync(html);
     }
 }
