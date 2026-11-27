@@ -10,6 +10,26 @@
 
 ## 请求处理
 
+```mermaid
+flowchart TD
+    request["浏览器请求"] --> route{"请求类型"}
+    route -->|"浏览 · 下载 · 预览"| guard{"共享目录边界与链接检查"}
+    route -->|"上传"| token{"上传令牌有效？"}
+    token -->|"否"| reject["拒绝请求"]
+    token -->|"是"| guard
+    guard -->|"不允许"| reject
+    guard -->|"允许"| action{"执行操作"}
+    action -->|"浏览目录"| list["生成目录页"]
+    action -->|"下载文件"| download["附件下载"]
+    action -->|"预览图片"| preview["内联图片预览"]
+    action -->|"上传文件"| upload["流式写入临时文件"]
+    list --> root["选定的共享文件夹"]
+    download --> root
+    preview --> root
+    upload -->|"写入完成且无同名文件"| move["改名为目标文件"]
+    move --> root
+```
+
 浏览和下载只接受 GET 和 HEAD；上传使用 POST `/_kutu/upload`。解析相对路径后，逐段检查路径边界，并拒绝路径中的 reparse point。目录列表对显示文本做 HTML 转义，对链接路径做 URL 编码；文件以附件形式下载，设置 `nosniff` 和禁止缓存响应头。
 
 图片预览使用 GET/HEAD `/_kutu/preview?path=...`，与下载共用目录边界检查。仅常见浏览器可显示的 JPG、PNG、GIF、WebP、BMP 且不超过 20 MB 的文件以内联图像返回。SVG 等格式继续使用类型图标，避免浏览器执行其中的活动内容。列表中的图片缩略图使用延迟加载；点击缩略图或眼睛图标打开预览，下载图标仍请求附件下载地址。
