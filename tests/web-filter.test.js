@@ -76,9 +76,12 @@ const elements = {
   pick: control(),
   drop: { ...control(), classList: { add() {}, remove() {} } },
   uploadStatus: { append() {} },
+  uploadPanel: { open: false, contains(target) { return target === this.inside; }, inside: {}, querySelector() { return this.summary; }, summary: { focus() { this.focused = true; } } },
   choose: control()
 };
 const document = {
+  events: {},
+  addEventListener(name, callback) { this.events[name] = callback; },
   querySelectorAll: () => [thumbnail, previewAction],
   getElementById: id => {
     assert.ok(elements[id], `missing element ${id}`);
@@ -183,4 +186,16 @@ assert.equal(elements.downloadPreview.href, '/picture.png');
 elements.closePreview.events.click();
 assert.equal(elements.previewDialog.open, false);
 
-console.log('PASS: sort, search, type/date filters, pagination and preview actions');
+elements.uploadPanel.open = true;
+document.events.click({ target: elements.uploadPanel.inside });
+assert.equal(elements.uploadPanel.open, true);
+document.events.click({ target: {} });
+assert.equal(elements.uploadPanel.open, false);
+elements.uploadPanel.open = true;
+let prevented = false;
+document.events.keydown({ key: 'Escape', preventDefault() { prevented = true; } });
+assert.equal(elements.uploadPanel.open, false);
+assert.equal(prevented, true);
+assert.equal(elements.uploadPanel.summary.focused, true);
+
+console.log('PASS: filters, preferences, preview and upload panel dismissal');

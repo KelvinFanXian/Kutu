@@ -170,6 +170,17 @@ previewDialog.addEventListener('close', () => previewImage.removeAttribute('src'
 const pick = document.getElementById('pick');
 const drop = document.getElementById('drop');
 const status = document.getElementById('uploadStatus');
+const uploadPanel = document.getElementById('uploadPanel');
+document.addEventListener('click', event => {
+  if (uploadPanel.open && !uploadPanel.contains(event.target)) uploadPanel.open = false;
+});
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && uploadPanel.open) {
+    event.preventDefault();
+    uploadPanel.open = false;
+    uploadPanel.querySelector('summary').focus();
+  }
+});
 document.getElementById('choose').addEventListener('click', () => pick.click());
 pick.addEventListener('change', () => uploadFiles(pick.files));
 drop.addEventListener('dragover', event => {
